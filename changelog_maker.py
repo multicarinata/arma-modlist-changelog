@@ -42,12 +42,15 @@ def extract_modlist(html_file):
             displayname = re.sub(r"  ",
                                  " ",
                                  split_file.split("</td>")[0])
+            
             displayname = re.sub(r"&amp",
                                  "&",
                                  displayname)
+            
             displayname = re.sub('''[\\?/*\\[\\]\\(\\)\\.\\;\\,\\|]''' ,
                                  '',
                                  displayname)
+            
             mod_url_startpos = split_file.find('''data-type="Link">''')
             mod_url_endpos = split_file.find("</a>")
             mod_url = re.sub('''data-type="Link">''',
@@ -79,14 +82,15 @@ def extract_modlist(html_file):
         return modlist_formatted
     
 new_modlist = extract_modlist(new_modlist_path)
-new_modlist_title = new_modlist[0]
+new_modlist_title = str(new_modlist[0])
 new_modlist_dict = dict(new_modlist[1])
-new_modlist_size = round(new_modlist[2],1)
+new_modlist_size = new_modlist[2]
 
 old_modlist = extract_modlist(old_modlist_path)
-old_modlist_title = old_modlist[0]
+old_modlist_title = str(old_modlist[0])
 old_modlist_dict = dict(old_modlist[1])
-old_modlist_size = round(old_modlist[2],1)
+old_modlist_size = old_modlist[2]
+
 update_size = round(new_modlist_size - old_modlist_size,1)
 
 def format_changelist(given_dict, compare_dict, add_link):
@@ -105,29 +109,30 @@ def format_changelist(given_dict, compare_dict, add_link):
     changelist = [formatted_list,change_size]
     return changelist
 
-modlist_add_list = format_changelist(new_modlist_dict, old_modlist_dict, True)[0]
-modlist_add_size = format_changelist(new_modlist_dict, old_modlist_dict, True)[1]
-modlist_remove_list = format_changelist(old_modlist_dict, new_modlist_dict, False)[0]
-modlist_remove_size = format_changelist(old_modlist_dict, new_modlist_dict, False)[1]
+add_list_tuple = format_changelist(new_modlist_dict, old_modlist_dict, True)
+modlist_add_list = add_list_tuple[0]
+modlist_add_size = add_list_tuple[1]
 
-note("---CHANGELOG MESSAGE STARTS BELOW---")
-note("## " + new_modlist_title)
-note("Total mods: **" + str(len(new_modlist_dict)) + "**")
+remove_list_tuple = format_changelist(old_modlist_dict, new_modlist_dict, False)
+modlist_remove_list = remove_list_tuple[0]
+modlist_remove_size = remove_list_tuple[1]
+
+note("---CHANGELOG MESSAGE STARTS BELOW---" +
+     "\n## "+ new_modlist_title +
+     "\nTotal mods: **" + str(len(new_modlist_dict)) + "**")
 
 if round(modlist_add_size,0) > 0:
-    download_size_string = "Download size: **" + str(int(round(modlist_add_size,0))) + " GB**"
-elif round(modlist_add_size,3) > 0:
-    download_size_string = "Download size: **" + str(int(1024*(round(modlist_add_size,3)))) + " MB**"
-elif round(modlist_add_size,6) > 0:
-    download_size_string = "Download size: **<1 MB**"
+    download_size_string = "Download size: **" + str(round(modlist_add_size)) + " GB**"
+elif round(modlist_add_size,2) > 0:
+    download_size_string = "Download size: **" + str(round(1024*modlist_add_size)) + " MB**"
 else:
-    download_size_string = "Exception in download size calculation."
+    download_size_string = "Download size: **<10 MB**"
 
 note(download_size_string)
 
 # check if there have actually been changes
 if len(modlist_add_list) > 0 or len(modlist_remove_list) > 0:
-    note("Changes from " + str(old_modlist_title) + ":")
+    note("Changes from " + old_modlist_title + ":")
     if len(modlist_add_list) > 0:
         note("### Add " + str(len(modlist_add_list)) + ":")
         for entry in sorted(modlist_add_list):
@@ -137,7 +142,7 @@ if len(modlist_add_list) > 0 or len(modlist_remove_list) > 0:
         for entry in sorted(modlist_remove_list):
             note(entry)
 else:
-    note("No changes from " + str(old_modlist_title))
+    note("No changes from " + old_modlist_title)
 
 note("Total modlist size: " + str(new_modlist_size) + " GB")
 
@@ -147,4 +152,6 @@ if round(new_modlist_size - old_modlist_size,0) > 0:
 elif round(new_modlist_size - old_modlist_size,0) < 0:
     note("New modlist is " + str(-1*update_size) + " GB smaller than " + old_modlist_title)
 
-note("---END CHANGELOG MESSAGE. ANNOUNCEMENT MESSAGE STARTS BELOW---\n##" + new_modlist_title + "\n" + download_size_string)
+note("---END CHANGELOG MESSAGE. ANNOUNCEMENT MESSAGE STARTS BELOW---" +
+     "\n## " + new_modlist_title +
+     "\n" + download_size_string)

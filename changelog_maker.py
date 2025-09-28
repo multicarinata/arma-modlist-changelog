@@ -1,4 +1,5 @@
 from bs4 import BeautifulSoup
+import logging
 import re
 from tkinter import filedialog
 from urllib.request import urlopen
@@ -6,14 +7,26 @@ from urllib.request import urlopen
 new_modlist_path = filedialog.askopenfile(filetypes=[("Arma 3 modlists", "*.html")], title = "Select your new modlist.").name
 old_modlist_path = filedialog.askopenfile(filetypes=[("Arma 3 modlists", "*.html")], title = "Select your old modlist.").name
 
+logging.basicConfig(filename = new_modlist_path.split(".html")[0] + "_CHANGELOG.txt",
+                    encoding = "utf-8",
+                    format="{message}",
+                    style="{",
+                    level = logging.INFO)
+
 combined_modlists = {}
+
+def note(note_string):
+    print(str(note_string))
+    logging.info(str(note_string))
 
 def extract_modlist(html_file):
     with open(html_file, 'r', encoding="utf-8") as file:
 
         file_text = file.read()
         header_text = file_text.split("<style>")[0]
-        modlist_title = str(header_text.split('''name="arma:PresetName" content="''')[1].split('"')[0])
+        modlist_title = str(header_text
+                            .split('''name="arma:PresetName" content="''')[1]
+                            .split('"')[0])
         modlist_text = file_text.split('''<div class="mod-list">''')[1]
         modlist_dict = {}
         modlist_size = 0.0
@@ -25,22 +38,23 @@ def extract_modlist(html_file):
             displayname = re.sub('''[\\?/*\\[\\]\\(\\)\\.\\;\\,\\|]''' , '', displayname)
             mod_url_startpos = split_file.find('''data-type="Link">''')
             mod_url_endpos = split_file.find("</a>")
-            mod_url = re.sub('''data-type="Link">''', "", split_file[mod_url_startpos:mod_url_endpos])
+            mod_url = re.sub('''data-type="Link">''', "",
+                             split_file[mod_url_startpos:mod_url_endpos])
 
             if mod_url not in combined_modlists:
                 steam_page = str(BeautifulSoup(urlopen(mod_url),features="html.parser"))
                 mod_size = steam_page.split('''<div class="detailsStatsContainerRight">''')[1].split('''StatRight">''')[1].split('''</div''')[0]
                 
-                if "KB" in mod_size:
-                    size_multiplier = 0.000001
-                elif "MB" in mod_size:
-                    size_multiplier = 0.001
-                elif "GB" in mod_size:
+                if "GB" in mod_size:
                     size_multiplier = 1.0
+                elif "MB" in mod_size:
+                    size_multiplier = 1/1024
+                elif "KB" in mod_size:
+                    size_multiplier = 1/1024**2
                 elif " B" in mod_size:
                     size_multiplier = 0
                 else:
-                    print(mod_url + ": size calc error: " + mod_size)
+                    note(mod_url + ": size calc error: " + mod_size)
                     size_multiplier = 1.0
                 
                 mod_size = float(mod_size[:-3])*size_multiplier
@@ -83,31 +97,39 @@ modlist_add_size = format_changelist(new_modlist_dict, old_modlist_dict, True)[1
 modlist_remove_list = format_changelist(old_modlist_dict, new_modlist_dict, False)[0]
 modlist_remove_size = format_changelist(old_modlist_dict, new_modlist_dict, False)[1]
 
-print("---CHANGELOG MESSAGE STARTS BELOW---")
-print("## " + new_modlist_title)
-print("Total mods: **" + str(len(new_modlist_dict)) + "**")
-print("Download size: **" + str(round(modlist_add_size,1)) + " GB**")
+note("---CHANGELOG MESSAGE STARTS BELOW---")
+note("## " + new_modlist_title)
+note("Total mods: **" + str(len(new_modlist_dict)) + "**")
+
+if round(modlist_add_size,0) > 0:
+    download_size_string = "Download size: **" + str(int(round(modlist_add_size,0))) + " GB**"
+elif round(modlist_add_size,3) > 0:
+    download_size_string = "Download size: **" + str(int(1024*(round(modlist_add_size,3)))) + " MB**"
+elif round(modlist_add_size,6) > 0:
+    download_size_string = "Download size: **<1 MB**"
+else:
+    download_size_string = "Exception in download size calculation."
+
+note(download_size_string)
 
 if len(modlist_add_list) > 0 or len(modlist_remove_list) > 0:
-    print("Changes from " + str(old_modlist_title) + ":")
+    note("Changes from " + str(old_modlist_title) + ":")
     if len(modlist_add_list) > 0:
-        print("### Add " + str(len(modlist_add_list)) + ":")
+        note("### Add " + str(len(modlist_add_list)) + ":")
         for entry in sorted(modlist_add_list):
-            print(entry)
+            note(entry)
     if len(modlist_remove_list) > 0:
-        print("### Remove " + str(len(modlist_remove_list)) + ":")
+        note("### Remove " + str(len(modlist_remove_list)) + ":")
         for entry in sorted(modlist_remove_list):
-            print(entry)
+            note(entry)
 else:
-    print("No changes from " + str(old_modlist_title))
+    note("No changes from " + str(old_modlist_title))
 
-print("Total modlist size: " + str(new_modlist_size) + " GB")
+note("Total modlist size: " + str(new_modlist_size) + " GB")
 
 if round(new_modlist_size - old_modlist_size,1) > 0:
-    print("New modlist is " + str(update_size) + " GB larger than " + old_modlist_title)
+    note("New modlist is " + str(update_size) + " GB larger than " + old_modlist_title)
 elif round(new_modlist_size - old_modlist_size,1) < 0:
-    print("New modlist is " + str(-1*update_size) + " GB smaller than " + old_modlist_title)
+    note("New modlist is " + str(-1*update_size) + " GB smaller than " + old_modlist_title)
 
-print("---END CHANGELOG MESSAGE. ANNOUNCEMENT MESSAGE STARTS BELOW---")
-print("## " + new_modlist_title)
-print("Download size: " + str(round(modlist_add_size,1)) + " GB")
+note("---END CHANGELOG MESSAGE. ANNOUNCEMENT MESSAGE STARTS BELOW---\n##" + new_modlist_title + "\n" + download_size_string)
